@@ -3,6 +3,69 @@ import astropy.units as units
 import hdf5plugin
 import h5py as h5
 import numpy as np
+import time_utils
+
+
+class TimeInfo:
+
+    def __init__(self, N):
+        # Quantities we'll read from the file
+        self.frame0_unix_ns = np.empty((N,), dtype=int)
+        self.dseq_ns = np.empty((N,), dtype=int)
+        self.seq_start = np.empty((N,), dtype=int)
+        self.seq_len = np.empty((N,), dtype=int)
+        self.bin_idx = np.empty((N,), dtype=int)
+        self.bin_start_era_deg = np.empty((N,), dtype=float)
+        self.bin_end_era_deg = np.empty((N,), dtype=float)
+        self.bin_start_eral_deg = np.empty((N,), dtype=float)
+        self.bin_end_eral_deg = np.empty((N,), dtype=float)
+        self.bin_t_inst_ns = np.empty((N,), dtype=int)
+        self.bin_ut1_ns = np.empty((N,), dtype=int)
+        self.bin_delta_ut1_inst = np.empty((N,), dtype=float)
+        self.bin_era_deg = np.empty((N,), dtype=float)
+        self.bin_xp_as = np.empty((N,), dtype=float)
+        self.bin_yp_as = np.empty((N,), dtype=float)
+
+        # Quantities we'll calculate later
+        self.seq_end = np.empty((N,), dtype=int)
+        self.t_inst_ns_start = np.empty((N,), dtype=int)
+        self.bin_nrot = np.empty((N,), dtype=int)
+
+    def fill_from_file(self, f_handle, idx=0):
+
+        T = f_handle['fpga_start_tick'].shape[0]
+        self.frame0_unix_ns[idx:idx+T] = load_frame0_from_attrs(f_handle.attrs) 
+        self.dseq_ns[idx:idx+T] = load_dseq_from_attrs(f_handle.attrs) 
+        self.seq_start[idx:idx+T] = f_handle['fpga_start_tick'][...]
+        self.seq_len[idx:idx+T] = f_handle['frame_length_fpga_ticks'][...]
+        self.bin_idx[idx:idx+T] = (f_handle['abs_time_idx'][...] if 'abs_time_idx' in f_handle
+                                   else -1)
+        self.bin_start_era_deg[idx:idx+T] = f_handle['bin_start_ERA_deg'][...]
+        self.bin_end_era_deg[idx:idx+T] = f_handle['bin_end_ERA_deg'][...]
+        self.bin_start_eral_deg[idx:idx+T] = f_handle['bin_start_ERAL'][...]
+        self.bin_end_eral_deg[idx:idx+T] = f_handle['bin_end_ERAL'][...]
+        self.bin_t_inst_ns[idx:idx+T] = f_handle['bin_t_inst_ns'][...]
+        self.bin_ut1_ns[idx:idx+T] = f_handle['bin_ut1_ns'][...]
+        self.bin_delta_ut1_inst[idx:idx+T] = f_handle['bin_delta_ut1_inst'][...]
+        self.bin_era_deg[idx:idx+T] = f_handle['bin_ERA_deg'][...]
+        self.bin_xp_as[idx:idx+T] = f_handle['bin_xp_as'][...]
+        self.bin_yp_as[idx:idx+T] = f_handle['bin_yp_as'][...]
+
+    def finalize(self):
+
+        self.seq_end = self.seq_start + self.seq_len
+        self.t_inst_ns_start = time_utils.get_t_inst_ns(self.seq_start,
+                                                        self.frame0_unix_ns, self.dseq_ns)
+        self.t_inst_ns_end = time_utils.get_t_inst_ns(self.seq_end,
+                                                      self.frame0_unix_ns, self.dseq_ns)
+        self.t_start = time_utils.calc_astropy_time_from_inst_ns(self.t_inst_ns_start,
+                                                                 self.frame0_unix_ns)
+        self.t_end = time_utils.calc_astropy_time_from_inst_ns(self.t_inst_ns_end,
+                                                               self.frame0_unix_ns)
+        self.bin_t = time_utils.calc_astropy_time_from_inst_ns(self.bin_t_inst_ns,
+                                                               self.frame0_unix_ns)
+        self.bin_nrot = time_utils.get_nrot_at_t(self.bin_t)
+
 
 
 def read_dims_from_file(filename):
@@ -13,30 +76,26 @@ def read_dims_from_file(filename):
     return F, P, T
 
 
-def load_timeseries_from_file(f, p, filename):
+def load_timeseries_from_file(f, p, filename, ti=None, idx=None):
+
+    ts = {}
 
     with h5.File(filename, 'r') as hdl:
-        vis = hdl['vis'][f, p, :][...]
-        w = hdl['vis_weight'][f, p, :][...]
-        seq_start = hdl['fpga_start_tick'][...]
-        seq_len = hdl['frame_length_fpga_ticks'][...]
-        seq_good = hdl['valid_fpga_count'][f, :][...]
-        seq_rfi = hdl['rfi_only_fpga_count'][f, :][...]
-        seq_pl = hdl['pl_fpga_count'][f, :][...]
-        bin_start_ERA_deg = hdl['bin_start_ERA_deg'][...]
-        bin_t_inst_ns = hdl['bin_t_inst_ns'][...]
-        bin_ut1_ns = hdl['bin_ut1_ns'][...]
-        bin_delta_ut1_inst = hdl['bin_delta_ut1_inst'][...]
-        bin_ERA_deg = hdl['bin_ERA_deg'][...]
+        ts['vis'] = hdl['vis'][f, p, :][...]
+        ts['w'] = hdl['vis_weight'][f, p, :][...]
+        ts['seq_good'] = hdl['valid_fpga_count'][f, :][...]
+        ts['seq_rfi'] = hdl['rfi_only_fpga_count'][f, :][...]
+        ts['seq_pl'] = hdl['pl_fpga_count'][f, :][...]
+        if ti is None:
+            T = ts['vis'].shape[0]
+            ts['time'] = TimeInfo(T)
+            ts['time'].fill_from_file(hdl)
+        else:
+            if idx is None:
+                raise ValueError("Cannot load into a TimeInfo without an idx")
+            ti.fill_from_file(hdl, idx)
 
-    timeseries = dict(vis=vis, w=w, seq_start=seq_start, seq_len=seq_len,
-                      seq_good=seq_good, seq_rfi=seq_rfi, seq_pl=seq_pl,
-                      bin_start_ERA_deg=bin_start_ERA_deg,
-                      bin_t_inst_ns=bin_t_inst_ns, bin_ut1_ns=bin_ut1_ns,
-                      bin_delta_ut1_inst=bin_delta_ut1_inst,
-                      bin_ERA_deg=bin_ERA_deg)
-
-    return timeseries
+    return ts
 
 
 def find_freq_MHz(f, filename):
@@ -62,14 +121,36 @@ def find_prod(i, j, filename):
     return -1
 
 
-def load_frame0_from_file(file):
+def load_value_from_attrs(keys, attrs):
+
+    if isinstance(keys, str):
+        keys = [keys]
+    
+    for key in keys:
+        if key in attrs:
+            return attrs[key]
+
+    raise RuntimeError("attrs did not contain any of: {:s}".format(" ".join(*keys)))
+
+
+def load_frame0_from_attrs(attrs):
 
     frame0_keys = ['frame0_unix_ns', 'frame0_t_inst_ns']
 
+    return load_value_from_attrs(frame0_keys, attrs)
+
+
+def load_dseq_from_attrs(attrs):
+
+    dseq_keys = ['fpga_seq_length_ns', 'fpga_seq_length_nsec']
+    
+    return load_value_from_attrs(dseq_keys, attrs)
+
+
+def load_frame0_from_file(file):
+
     with h5.File(file, "r") as f:
-        for key in frame0_keys:
-            if key in f.attrs:
-                return f.attrs[key]
+        return load_frame0_from_attrs(f.attrs)
 
 
 def load_dseq_from_file(file):
@@ -77,9 +158,21 @@ def load_dseq_from_file(file):
     dseq_keys = ['fpga_seq_length_ns', 'fpga_seq_length_nsec']
 
     with h5.File(file, "r") as f:
-        for key in dseq_keys:
-            if key in f.attrs:
-                return f.attrs[key]
+        return load_dseq_from_attrs(f.attrs)
+
+
+def load_feed_name_from_file_handle(i, hndl):
+
+    if 'label' in hndl['index_map']:
+        return hndl['index_map/label'][i]
+    else:
+        return str(i)
+
+
+def load_feed_name_from_file(i, file):
+
+    with h5.File(file, "r") as f:
+        return load_feed_name_from_file_handle(i, f)
 
 
 def load_timeseries_from_files(f, i, j, files):
@@ -92,16 +185,11 @@ def load_timeseries_from_files(f, i, j, files):
 
     vis = np.empty((Tf,), dtype=np.complex64)
     w = np.empty((Tf,), dtype=np.float32)
-    seq_start = np.empty((Tf,), dtype=int)
-    seq_len = np.empty((Tf,), dtype=int)
     seq_good = np.empty((Tf,), dtype=int)
     seq_rfi = np.empty((Tf,), dtype=int)
     seq_pl = np.empty((Tf,), dtype=int)
-    era_bin_start = np.empty((Tf,), dtype=float)
-    t_inst_bin = np.empty((Tf,), dtype=int)
-    ut1_bin = np.empty((Tf,), dtype=int)
-    dut1_bin = np.empty((Tf,), dtype=float)
-    era_bin = np.empty((Tf,), dtype=float)
+
+    ti = TimeInfo(Tf)
 
     idx = 0
 
@@ -109,22 +197,43 @@ def load_timeseries_from_files(f, i, j, files):
         _, _, T = read_dims_from_file(file)
         p = find_prod(i, j, file)
 
-        ts = load_timeseries_from_file(f, p, file)
+        ts = load_timeseries_from_file(f, p, file, ti, idx)
         vis[idx:idx+T] = ts['vis']
         w[idx:idx+T] = ts['w']
-        seq_start[idx:idx+T] = ts['seq_start']
-        seq_len[idx:idx+T] = ts['seq_len']
         seq_good[idx:idx+T] = ts['seq_good']
         seq_rfi[idx:idx+T] = ts['seq_rfi']
-        seq_pl[idx:idx+T] = ts['seq_pl']
-        era_bin_start[idx:idx+T] = ts['bin_start_ERA_deg']
-        t_inst_bin[idx:idx+T] = ts['bin_t_inst_ns']
-        ut1_bin[idx:idx+T] = ts['bin_ut1_ns']
-        dut1_bin[idx:idx+T] = ts['bin_delta_ut1_inst']
-        era_bin[idx:idx+T] = ts['bin_ERA_deg']
+        seq_pl[idx:idx+T] = ts['seq_pl'] 
         idx += T
 
-    return dict(vis=vis, w=w, seq_start=seq_start, seq_len=seq_len,
-                seq_good=seq_good, seq_rfi=seq_rfi, seq_pl=seq_pl,
-                era_bin_start=era_bin_start, t_inst_bin=t_inst_bin,
-                ut1_bin=ut1_bin, dut1_bin=dut1_bin, era_bin=era_bin)
+    ti.finalize()
+
+    return dict(vis=vis, w=w, time=ti,
+                seq_good=seq_good, seq_rfi=seq_rfi, seq_pl=seq_pl)
+
+
+def load_times_from_files(files):
+
+    Tf = 0
+
+    print("Determining sizes")
+
+    for file in files:
+        _, _, T = read_dims_from_file(file)
+        Tf += T
+    
+    ti = TimeInfo(Tf)
+
+    idx = 0
+
+    for file in files:
+        print("Loading", file)
+        _, _, T = read_dims_from_file(file)
+
+        with h5.File(file, 'r') as f:
+            ti.fill_from_file(f, idx)
+
+        idx += T
+    
+    ti.finalize()
+
+    return ti 

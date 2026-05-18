@@ -15,6 +15,9 @@ if __name__ == "__main__":
     for i in range(6):
         for j in range(i, 6):
 
+            name_i = vis_util.load_feed_name_from_file(i, filenames[0])
+            name_j = vis_util.load_feed_name_from_file(j, filenames[0])
+
             # for f in np.arange(0, 8192):
             for f in np.arange(4200, 4300):
 
@@ -30,19 +33,10 @@ if __name__ == "__main__":
                 if not good.any():
                     continue
 
-                exist = data['seq_start'] > 0
+                exist = data['time'].seq_start > 0
 
                 if output_times:
-                    frame0_ns = vis_util.load_frame0_from_file(filenames[0])
-                    dseq_ns = vis_util.load_dseq_from_file(filenames[0])
-
-                    seq = data['seq_start'][exist]
-
-                    dt_ns = seq * dseq_ns
-
-                    t0 = Time(frame0_ns * units.ns, format='unix')
-                    dt = TimeDelta(dt_ns * units.ns, scale='tai')
-                    t = t0 + dt
+                    t = data['time'].t_start[exist]
 
                     era = t.earth_rotation_angle('tio').to_value('deg')
                     dera = (era[1:] - era[:-1]).mean()
@@ -66,54 +60,57 @@ if __name__ == "__main__":
 
                     output_times = False
 
+                i0 = data['time'].t_inst_ns_start[exist].argmin()
+                t0 = data['time'].t_start[exist][i0]
+                t0.precision = 3
+                t0_ns = data['time'].t_inst_ns_start[exist][i0]
+                dt_h = (data['time'].bin_t_inst_ns - t0_ns) * 1.0e-9 / 3600
+
                 good_w = data['w'] > 0
                 err = np.zeros_like(data['w'])
                 err[good_w] = 1.0 / np.sqrt(data['w'][good_w])
 
                 fig, ax = plt.subplots(4, 1, figsize=(8, 8))
 
-                ax[0].plot(data['seq_start'][good], data['vis'][good].real)
-                ax[0].plot(data['seq_start'][good], data['vis'][good].imag)
-                ax[0].errorbar(data['seq_start'][good],
+                ax[0].plot(dt_h[good], data['vis'][good].real)
+                ax[0].plot(dt_h[good], data['vis'][good].imag)
+                ax[0].errorbar(dt_h[good],
                                np.abs(data['vis'][good]), err[good],
                                color='k', marker='', ls='-')
 
-                ax[1].plot(data['seq_start'][good],
+                ax[1].plot(dt_h[good],
                            np.angle(data['vis'][good]))
 
-                ax[2].plot(data['seq_start'][exist], data['seq_good'][exist],
+                ax[2].plot(dt_h[exist], data['seq_good'][exist],
                            '.', label='good')
-                ax[2].plot(data['seq_start'][exist], data['seq_rfi'][exist],
+                ax[2].plot(dt_h[exist], data['seq_rfi'][exist],
                            '.', label='rfi')
-                ax[2].plot(data['seq_start'][exist], data['seq_pl'][exist],
+                ax[2].plot(dt_h[exist], data['seq_pl'][exist],
                            '.', label='pl')
-                ax[2].plot(data['seq_start'][exist], data['seq_len'][exist],
+                ax[2].plot(dt_h[exist], data['time'].seq_len[exist],
                            'k.', label='len')
                 ax[2].legend()
                 ax[2].set_yscale('symlog', linthresh=100)
 
-                ax[3].plot(data['seq_start'][exist],
-                           data['seq_good'][exist] / data['seq_len'][exist],
+                ax[3].plot(dt_h[exist],
+                           data['seq_good'][exist] / data['time'].seq_len[exist],
                            '.', label='good')
-                ax[3].plot(data['seq_start'][exist],
-                           data['seq_rfi'][exist] / data['seq_len'][exist],
+                ax[3].plot(dt_h[exist],
+                           data['seq_rfi'][exist] / data['time'].seq_len[exist],
                            '.', label='rfi')
-                ax[3].plot(data['seq_start'][exist],
-                           data['seq_pl'][exist] / data['seq_len'][exist], '.',
+                ax[3].plot(dt_h[exist],
+                           data['seq_pl'][exist] / data['time'].seq_len[exist], '.',
                            label='pl')
                 ax[3].set_yscale('symlog', linthresh=1.0e-4)
 
-                min_seq = (data['seq_start'][exist][0]
-                           - data['seq_len'][exist][0])
-                max_seq = (data['seq_start'][exist][-1]
-                           - data['seq_len'][exist][-1])
+                ax[0].set(xlim=(dt_h[exist].min(), dt_h[exist].max()))
+                ax[1].set(xlim=(dt_h[exist].min(), dt_h[exist].max()))
+                ax[2].set(xlim=(dt_h[exist].min(), dt_h[exist].max()))
+                ax[3].set(xlim=(dt_h[exist].min(), dt_h[exist].max()),
+                          xlabel=r'Hours since start at {:s}'.format(t0.utc.isot))
 
-                ax[0].set(xlim=(min_seq, max_seq))
-                ax[1].set(xlim=(min_seq, max_seq))
-                ax[2].set(xlim=(min_seq, max_seq))
-                ax[3].set(xlim=(min_seq, max_seq))
-
-                fig.suptitle("f[{0:04d}] = {1:f} MHz".format(f, f_MHz))
+                fig.suptitle("Uncalibrated Visibility f[{0:04d}] = {1:f} MHz {2:s}-{3:s}$^*$"
+                             .format(f, f_MHz, name_i, name_j))
 
                 figname = "timeseries_f_{0:04d}_{1:d}-{2:d}.png".format(
                         f, i, j)

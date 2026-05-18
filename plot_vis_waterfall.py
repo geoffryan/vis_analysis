@@ -21,9 +21,6 @@ def make_waterfall(i, j, files):
     fds_fac = 1
     frame0_ns = -1
 
-    name_i = str(i)
-    name_j = str(j)
-
     with h5.File(files[0], "r") as f:
         fmap = np.array([freq[0] for freq in f['index_map/freq'][::fds_fac]]
                         ).astype(float)
@@ -32,6 +29,9 @@ def make_waterfall(i, j, files):
             name_i = f['index_map/label'][i]
             name_j = f['index_map/label'][j]
         dseq_ns = f.attrs['fpga_seq_length_nsec']
+
+        name_i = vis_util.load_feed_name_from_file_handle(i, f)
+        name_j = vis_util.load_feed_name_from_file_handle(j, f)
 
     Fds = len(fmap)
 
@@ -71,8 +71,8 @@ def make_waterfall(i, j, files):
     dt_min = dt_e[seq_e > 0].min()
     dt_max = dt_e[seq_e > 0].max()
 
-    rNorm = mpl.colors.SymLogNorm(linthresh=0.1)
-    iNorm = mpl.colors.SymLogNorm(linthresh=0.1)
+    rNorm = mpl.colors.SymLogNorm(linthresh=0.1, vmin=-100, vmax=100)
+    iNorm = mpl.colors.SymLogNorm(linthresh=0.1, vmin=-100, vmax=100)
 
     size = (9, 6)
     pix_height = 6000
@@ -94,7 +94,8 @@ def make_waterfall(i, j, files):
     cb.set_label('Vis Mag')
     ax[1, 0].set(xlim=(dt_min, dt_max), ylim=(fe.min(), fe.max()))
 
-    c = ax[1, 1].pcolormesh(dt_e, fe, vis_p, norm='linear', cmap='twilight')
+    c = ax[1, 1].pcolormesh(dt_e, fe, vis_p, norm='linear', cmap='twilight',
+                            vmin=-np.pi, vmax=np.pi)
     cb = fig.colorbar(c)
     cb.set_label('Vis Phase')
     ax[1, 1].set(xlim=(dt_min, dt_max), ylim=(fe.min(), fe.max()))
