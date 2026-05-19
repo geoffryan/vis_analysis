@@ -16,7 +16,11 @@ t = vis_util.load_times_from_files(files)
 exist = t.seq_start > 0
 
 era_start = t.t_start[exist].earth_rotation_angle('tio').to_value('deg')
+era_bin = t.bin_era_deg[exist]
 era_end = t.t_end[exist].earth_rotation_angle('tio').to_value('deg')
+
+era_start[era_start > era_bin] -= 360.0
+era_end[era_end < era_bin] += 360.0
 
 i0 = np.argmin(t.t_inst_ns_start[exist])
 
@@ -56,4 +60,39 @@ figname = 'era_bins_zoom.png'
 print("Saving", figname)
 fig.savefig(figname, dpi=200)
 
+
+dera = (era_end - era_start).mean()
+n_bin_per_rot = int(round(360.0 / dera))
+dera_exp = 360 / n_bin_per_rot
+
+era_idx = np.floor(t.bin_era_deg[exist] / dera_exp).astype(int)
+
+nrot0 = t.bin_nrot[exist].min()
+bin_idx = era_idx + (t.bin_nrot[exist] - nrot0) * n_bin_per_rot
+
+era_res_start = era_start - dera_exp * era_idx
+
+rot = bin_idx / n_bin_per_rot
+
+fig, ax = plt.subplots(1, 1, figsize=(12, 4))
+ax.plot(rot, era_res_start, '.', ms=2, mew=0)
+ax.set(xlabel='Rotations',
+       # xlim=(0.99, 1.01),
+       ylabel=r'ERA start - ERA bin start (deg)')
+fig.tight_layout()
+figname = 'era_res.png'
+print("Saving", figname)
+fig.savefig(figname, dpi=200)
+plt.close(fig)
+
+fig, ax = plt.subplots(1, 1, figsize=(12, 4))
+ax.plot(rot, (era_end - era_start) - dera_exp, '.', alpha=0.02)
+ax.set(xlabel='Rotations',
+       # xlim=(0.99, 1.01),
+       ylabel=r'ERA Integration Length - Expected (deg)')
+fig.tight_layout()
+figname = 'era_len.png'
+print("Saving", figname)
+fig.savefig(figname)
+plt.close(fig)
 

@@ -10,8 +10,6 @@ if __name__ == "__main__":
 
     filenames = [Path(s) for s in sys.argv[1:]]
 
-    output_times = True
-
     for i in range(6):
         for j in range(i, 6):
 
@@ -34,31 +32,6 @@ if __name__ == "__main__":
                     continue
 
                 exist = data['time'].seq_start > 0
-
-                if output_times:
-                    t = data['time'].t_start[exist]
-
-                    era = t.earth_rotation_angle('tio').to_value('deg')
-                    dera = (era[1:] - era[:-1]).mean()
-                    n_bin_per_rot = int(round(360.0 / dera))
-                    dera_exp = 360 / n_bin_per_rot
-
-                    era_idx_start = int(round(era[0] / dera_exp))
-                    era_idx = era_idx_start + np.arange(len(era))
-
-                    era_res = era - dera_exp * era_idx
-
-                    fig, ax = plt.subplots(1, 1)
-                    ax.plot(era_idx, era_res, '.')
-                    ax.set(xlabel='ERA bin',
-                           ylabel=r'ERA start - ERA bin start (deg)')
-                    fig.tight_layout()
-                    figname = 'era_res.png'
-                    print("Saving", figname)
-                    fig.savefig(figname)
-                    plt.close(fig)
-
-                    output_times = False
 
                 i0 = data['time'].t_inst_ns_start[exist].argmin()
                 t0 = data['time'].t_start[exist][i0]
