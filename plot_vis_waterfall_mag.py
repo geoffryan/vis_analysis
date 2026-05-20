@@ -15,8 +15,8 @@ def make_waterfall_mag(i, j, files):
     Tf = 0
 
     print("Loading dims")
-    for i, file in enumerate(files):
-        print("Loading {:d} of {:d}:".format(i, len(files)), file)
+    for idx, file in enumerate(files):
+        print("Loading {:d} of {:d}:".format(idx, len(files)), file)
         F, P, T = vis_util.read_dims_from_file(file)
         Tf += T
 
@@ -47,9 +47,9 @@ def make_waterfall_mag(i, j, files):
 
     idx = 0
 
-    for i, file in enumerate(files):
+    for idx, file in enumerate(files):
         p = vis_util.find_prod(i, j, file)
-        print("Loading {:d} of {:d}:".format(i, len(files)), file)
+        print("Loading {:d} of {:d}:".format(idx, len(files)), file)
         with h5.File(file, "r") as f:
             T = f['vis'].shape[2]
             vis_chunk = f['vis'][::fds_fac, p, :][...]

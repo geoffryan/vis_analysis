@@ -104,7 +104,7 @@ def find_freq_MHz(f, filename):
         fmap = hdl['index_map']['freq'][...]
 
     if f >= len(fmap):
-        return -1.0
+        raise RuntimeError("freq array index {:d} bigger than freq array len {:d}".format(f, len(fmap)))
 
     return fmap[f]['centre']
 
@@ -118,7 +118,7 @@ def find_prod(i, j, filename):
         if pmap[p][0] == i and pmap[p][1] == j:
             return p
 
-    return -1
+    raise RuntimeError("Product ({:d}, {:d}) not in file: {:s}".format(i, j, filename))
 
 
 def load_value_from_attrs(keys, attrs):
@@ -173,6 +173,20 @@ def load_feed_name_from_file(i, file):
 
     with h5.File(file, "r") as f:
         return load_feed_name_from_file_handle(i, f)
+
+
+def load_feed_pos_from_file_handle(i, hndl):
+
+    if 'dish_positions_in_grid_coords' in hndl['index_map']:
+        return hndl['index_map/dish_positions_in_grid_coords'][i]
+
+    raise RuntimeError("No dish positions in file", hndl)
+
+
+def load_feed_pos_from_file(i, file):
+
+    with h5.File(file, "r") as f:
+        return load_feed_pos_from_file_handle(i, f)
 
 
 def load_timeseries_from_files(f, i, j, files):
