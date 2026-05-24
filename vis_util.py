@@ -86,6 +86,7 @@ def load_timeseries_from_file(f, p, filename, ti=None, idx=None):
         ts['w'] = hdl['vis_weight'][f, p, :][...]
         ts['seq_good'] = hdl['valid_fpga_count'][f, :][...]
         ts['seq_rfi'] = hdl['rfi_only_fpga_count'][f, :][...]
+        ts['seq_rfi_plus'] = hdl['rfi_fpga_count'][f, :][...]
         ts['seq_pl'] = hdl['pl_fpga_count'][f, :][...]
         if ti is None:
             T = ts['vis'].shape[0]
@@ -202,6 +203,7 @@ def load_timeseries_from_files(f, i, j, files):
     w = np.empty((Tf,), dtype=np.float32)
     seq_good = np.empty((Tf,), dtype=int)
     seq_rfi = np.empty((Tf,), dtype=int)
+    seq_rfi_plus = np.empty((Tf,), dtype=int)
     seq_pl = np.empty((Tf,), dtype=int)
 
     ti = TimeInfo(Tf)
@@ -217,13 +219,14 @@ def load_timeseries_from_files(f, i, j, files):
         w[idx:idx+T] = ts['w']
         seq_good[idx:idx+T] = ts['seq_good']
         seq_rfi[idx:idx+T] = ts['seq_rfi']
+        seq_rfi_plus[idx:idx+T] = ts['seq_rfi_plus']
         seq_pl[idx:idx+T] = ts['seq_pl'] 
         idx += T
 
     ti.finalize()
 
     return dict(vis=vis, w=w, time=ti,
-                seq_good=seq_good, seq_rfi=seq_rfi, seq_pl=seq_pl)
+                seq_good=seq_good, seq_rfi=seq_rfi, seq_rfi_plus=seq_rfi_plus, seq_pl=seq_pl)
 
 
 def load_times_from_files(files):

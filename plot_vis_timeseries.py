@@ -10,8 +10,8 @@ if __name__ == "__main__":
 
     filenames = [Path(s) for s in sys.argv[1:]]
 
-    for i in range(6):
-        for j in range(i, 6):
+    for i in range(0, 8):
+        for j in range(i, 8):
 
             name_i = vis_util.load_feed_name_from_file(i, filenames[0])
             name_j = vis_util.load_feed_name_from_file(j, filenames[0])
@@ -32,13 +32,14 @@ if __name__ == "__main__":
 
                 seq_tot = t.seq_len[exist].sum()
 
-                print("f={} i={} j={}: tot: {} good: {} rfi: {}, pl: {}".format(f, i, j,
+                print("f={} i={} j={}: tot: {} good: {} rfi: {}, rfi-plus: {}, pl: {}".format(f, i, j,
                       seq_tot, data['seq_good'][exist].sum() / seq_tot,
-                      data['seq_rfi'][exist].sum() / seq_tot, data['seq_pl'][exist].sum() / seq_tot))
+                      data['seq_rfi'][exist].sum() / seq_tot, data['seq_rfi_plus'][exist].sum() / seq_tot,
+                      data['seq_pl'][exist].sum() / seq_tot))
 
-                if not good.any():
-                    print("Skipping f={}, i={}, j={}, no good data".format(f, i, j))
-                    continue
+                # if not good.any():
+                #     print("Skipping f={}, i={}, j={}, no good data".format(f, i, j))
+                #     continue
 
                 exist = data['time'].seq_start > 0
 
