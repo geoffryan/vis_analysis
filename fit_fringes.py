@@ -6,8 +6,8 @@ import scipy.optimize as sp_opt
 import vis_util
 
 
-era_min = 200
-era_max = 206
+era_min = 201
+era_max = 205
 
 
 def f_vis(era, amp, env_era_cen, sigma, fringe_era_cen, rate_era, phi0):
@@ -124,7 +124,7 @@ if __name__ == "__main__":
             lam_m = 2.99792458e8 / (1.0e-6 * f_MHz)
             u_ij = ew_sep / lam_m
 
-            rate0 = 2*np.pi * u_ij * (180/np.pi)**4
+            rate0 = 2*np.pi * u_ij * (180/np.pi)**8  # Huh?
 
             print(f, f_MHz, name_i, name_j)
             
@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 res = sp_opt.minimize(f_chi2, par0, args=args,
                                       jac=df_chi2,
                                       bounds=((0.01, 1.0), (200.0, 206.0), (0.1, 10.0),
-                                              (200.0, 206.0), (0.1, 20), (0.0, 2*np.pi)),
+                                              (200.0, 206.0), (0.1, 200000), (0.0, 2*np.pi)),
                                       method='L-BFGS-B',
                                       options={'maxiter': 1000})
                 print(rot)
@@ -171,10 +171,10 @@ if __name__ == "__main__":
                     print(res.success)
                 else:
                     print(res.success, res.message)
-                print(par0)
-                vis_fit = f_vis(era, *par0)
-                # print(res.x)
-                # vis_fit = f_vis(era, *res.x)
+                # print(par0)
+                # vis_fit = f_vis(era, *par0)
+                print(res.x)
+                vis_fit = f_vis(era, *res.x)
 
                 ax[rot].errorbar(era, vis.real, np.sqrt(vis_var/2), ls='')
                 ax[rot].errorbar(era, vis.imag, np.sqrt(vis_var/2), ls='')

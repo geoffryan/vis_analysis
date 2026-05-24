@@ -42,8 +42,8 @@ class TimeInfo:
                                    else -1)
         self.bin_start_era_deg[idx:idx+T] = f_handle['bin_start_ERA_deg'][...]
         self.bin_end_era_deg[idx:idx+T] = f_handle['bin_end_ERA_deg'][...]
-        self.bin_start_eral_deg[idx:idx+T] = f_handle['bin_start_ERAL'][...]
-        self.bin_end_eral_deg[idx:idx+T] = f_handle['bin_end_ERAL'][...]
+        self.bin_start_eral_deg[idx:idx+T] = f_handle['bin_start_ERAL_deg'][...] if 'bin_start_ERAL_deg' in f_handle else f_handle['bin_start_ERAL'][...]
+        self.bin_end_eral_deg[idx:idx+T] = f_handle['bin_end_ERAL_deg'][...] if 'bin_end_ERAL_deg' in f_handle else f_handle['bin_end_ERAL'][...]
         self.bin_t_inst_ns[idx:idx+T] = f_handle['bin_t_inst_ns'][...]
         self.bin_ut1_ns[idx:idx+T] = f_handle['bin_ut1_ns'][...]
         self.bin_delta_ut1_inst[idx:idx+T] = f_handle['bin_delta_ut1_inst'][...]
@@ -81,6 +81,7 @@ def load_timeseries_from_file(f, p, filename, ti=None, idx=None):
     ts = {}
 
     with h5.File(filename, 'r') as hdl:
+        # print("Loading", filename, "got", hdl['vis'].shape[2], "entries") 
         ts['vis'] = hdl['vis'][f, p, :][...]
         ts['w'] = hdl['vis_weight'][f, p, :][...]
         ts['seq_good'] = hdl['valid_fpga_count'][f, :][...]
@@ -164,7 +165,7 @@ def load_dseq_from_file(file):
 def load_feed_name_from_file_handle(i, hndl):
 
     if 'label' in hndl['index_map']:
-        return hndl['index_map/label'][i]
+        return str(hndl['index_map/label'][i])
     else:
         return str(i)
 

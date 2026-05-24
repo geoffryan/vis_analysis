@@ -17,7 +17,7 @@ if __name__ == "__main__":
             name_j = vis_util.load_feed_name_from_file(j, filenames[0])
 
             # for f in np.arange(0, 8192):
-            for f in np.arange(4200, 4300):
+            for f in np.arange(4200, 4300, 1):
 
                 f_MHz = vis_util.find_freq_MHz(f, filenames[0])
 
@@ -26,9 +26,18 @@ if __name__ == "__main__":
 
                 data = vis_util.load_timeseries_from_files(f, i, j, filenames)
 
+                t = data['time']
+                exist = t.seq_start > 0
                 good = data['seq_good'] > 0
 
+                seq_tot = t.seq_len[exist].sum()
+
+                print("f={} i={} j={}: tot: {} good: {} rfi: {}, pl: {}".format(f, i, j,
+                      seq_tot, data['seq_good'][exist].sum() / seq_tot,
+                      data['seq_rfi'][exist].sum() / seq_tot, data['seq_pl'][exist].sum() / seq_tot))
+
                 if not good.any():
+                    print("Skipping f={}, i={}, j={}, no good data".format(f, i, j))
                     continue
 
                 exist = data['time'].seq_start > 0
